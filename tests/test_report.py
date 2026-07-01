@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from polymarket_paper.report import build_text_report, export_csv
+from polymarket_paper.report import (
+    build_html_report, build_text_report, export_csv)
 from polymarket_paper.storage import Store
 from polymarket_paper.trader import trade_pnl
 
@@ -51,6 +52,21 @@ class TestReport(unittest.TestCase):
     def test_empty_store(self):
         s = Store(":memory:")
         self.assertIn("尚无已结算样本", build_text_report(s, 10_000.0))
+        s.close()
+
+    def test_html_report(self):
+        s = seed_store()
+        doc = build_html_report(s, 10_000.0)
+        self.assertIn("<!DOCTYPE html>", doc)
+        self.assertIn("校准曲线", doc)
+        self.assertIn("滚动 Brier", doc)
+        self.assertIn("<svg", doc)
+        self.assertIn("prefers-color-scheme", doc)   # 深色模式
+        s.close()
+
+    def test_html_report_empty(self):
+        s = Store(":memory:")
+        self.assertIn("尚无已结算样本", build_html_report(s, 10_000.0))
         s.close()
 
     def test_csv_export(self):

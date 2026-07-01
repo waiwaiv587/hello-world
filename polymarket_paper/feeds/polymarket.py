@@ -1,7 +1,7 @@
 """Polymarket 数据层:Gamma 市场发现 + CLOB 订单簿(WS 订阅,REST 兜底)。
 
-纸面模式只读公开数据,不需要任何密钥;py-clob-client 仅在第二阶段
-(真实下单)才是必需的。筛选逻辑抽成纯函数,便于离线单测。
+纸面模式只读公开数据,不需要任何密钥;网络层用本项目的标准库实现
+(miniws / netutil),零第三方依赖。筛选逻辑抽成纯函数,便于离线单测。
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
+from .. import miniws, netutil
 from ..config import PolymarketCfg
 
 log = logging.getLogger(__name__)
@@ -100,12 +101,7 @@ class PolymarketClient:
         self.cfg = cfg
 
     async def _get_json(self, url: str, params: dict | None = None):
-        import httpx  # 懒加载
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
+        return await netutil.get_json(url, params=params)
 
     async def discover_current_market(self) -> MarketInfo | None:
         """自动发现当前 15 分钟 BTC up/down 市场;支持配置手动钉死。"""
@@ -209,12 +205,11 @@ class BookFeed:
             poll_task.cancel()
 
     async def _run_ws(self) -> None:
-        import websockets  # 懒加载
-
         backoff = 1.0
         while True:
             try:
-                async with websockets.connect(self.cfg.clob_ws_url) as ws:
+                async with miniws.connect(self.cfg.clob_ws_url,
+                                          ping_interval_s=10.0) as ws:
                     await ws.send(json.dumps(
                         {"type": "market", "assets_ids": self.token_ids}))
                     log.info("Polymarket 订单簿 WS 已订阅 %d 个 token", len(self.token_ids))

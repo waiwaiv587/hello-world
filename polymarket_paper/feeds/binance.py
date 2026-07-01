@@ -1,6 +1,6 @@
 """Binance BTC 现货参照流:WebSocket 成交流 + REST K 线。
 
-网络库(websockets / httpx)在函数内懒加载,纯逻辑部分可离线单测。
+网络层全部使用本项目的标准库实现(miniws / netutil),零第三方依赖。
 """
 
 from __future__ import annotations
@@ -8,7 +8,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 
+from .. import miniws, netutil
 from ..config import BinanceCfg
 from ..signal import EwmaVol
 
@@ -33,12 +35,10 @@ class BinanceFeed:
         self.last_ts: float | None = None
 
     async def run(self) -> None:
-        import websockets  # 懒加载:仅实盘数据采集需要
-
         backoff = 1.0
         while True:
             try:
-                async with websockets.connect(self.cfg.ws_url) as ws:
+                async with miniws.connect(self.cfg.ws_url) as ws:
                     log.info("Binance WS 已连接: %s", self.cfg.ws_url)
                     backoff = 1.0
                     async for msg in ws:
@@ -60,23 +60,16 @@ async def fetch_interval_kline(
     cfg: BinanceCfg, interval_start_s: float, interval_minutes: int = 15
 ) -> tuple[float, float] | None:
     """取指定 15 分钟区间的 (open, close)。区间未走完或无数据返回 None。"""
-    import httpx  # 懒加载
-
-    params = {
+    rows = await netutil.get_json(f"{cfg.rest_url}/api/v3/klines", params={
         "symbol": cfg.symbol,
         "interval": f"{interval_minutes}m",
         "startTime": int(interval_start_s * 1000),
         "limit": 1,
-    }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(f"{cfg.rest_url}/api/v3/klines", params=params)
-        resp.raise_for_status()
-        rows = resp.json()
+    })
     if not rows:
         return None
     k = rows[0]
     # K 线未收盘时 closeTime(k[6]) 在未来,不能用作结算
-    import time
     if float(k[6]) / 1000.0 > time.time():
         return None
     return float(k[1]), float(k[4])
