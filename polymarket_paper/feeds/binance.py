@@ -59,7 +59,7 @@ class BinanceFeed:
 async def fetch_interval_kline(
     cfg: BinanceCfg, interval_start_s: float, interval_minutes: int = 15
 ) -> tuple[float, float] | None:
-    """取指定 15 分钟区间的 (open, close)。区间未走完或无数据返回 None。"""
+    """取指定区间的 (open, close)。区间未走完或无数据返回 None。"""
     rows = await netutil.get_json(f"{cfg.rest_url}/api/v3/klines", params={
         "symbol": cfg.symbol,
         "interval": f"{interval_minutes}m",

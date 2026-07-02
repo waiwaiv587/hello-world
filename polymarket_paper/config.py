@@ -20,17 +20,19 @@ class BankrollCfg:
 @dataclass
 class StrategyCfg:
     edge_threshold: float = 0.05
-    decision_interval_s: float = 30.0
-    warmup_s: float = 30.0
-    cutoff_s: float = 20.0
+    decision_interval_s: float = 15.0
+    warmup_s: float = 15.0
+    cutoff_s: float = 10.0
     max_trades_per_market: int = 1
     min_stake_usdc: float = 1.0
-    tie_resolves_down: bool = True
+    # 官方规则:结束价 >= 开始价 判 Up,平局(价格不变)算 Up。
+    tie_resolves_down: bool = False
 
 
 @dataclass
 class SignalCfg:
-    vol_halflife_s: float = 300.0
+    # 按市场时长(5 分钟 = 300s)的 1/3 设置,与原 15 分钟档 300s 的比例一致
+    vol_halflife_s: float = 100.0
     min_sigma: float = 1e-6
     prob_clamp: float = 0.005
 
@@ -54,7 +56,7 @@ class PolymarketCfg:
     clob_rest_url: str = "https://clob.polymarket.com"
     clob_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     series_title_regex: str = r"Bitcoin Up or Down"
-    interval_minutes: int = 15
+    interval_minutes: int = 5
     book_poll_fallback_s: float = 5.0
     # 手动钉死某个市场(自动发现失败时的逃生口),留空则自动发现
     override_condition_id: str = ""

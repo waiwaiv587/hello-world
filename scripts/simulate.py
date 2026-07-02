@@ -1,5 +1,5 @@
 """离线端到端仿真:本机模拟 Polymarket(Gamma/CLOB/WS)与 Binance,
-把 15 分钟区间压缩成 1 分钟,让真实主循环完整跑
+把区间压缩成 1 分钟,让真实主循环完整跑
 发现市场 → 快照 → 模拟入场 → 结算 → 报表,全程不出网。
 
 用法:
@@ -34,7 +34,7 @@ from polymarket_paper.report import (  # noqa: E402
     build_html_report, build_text_report, export_csv)
 from polymarket_paper.storage import Store  # noqa: E402
 
-INTERVAL_S = 60          # 1 分钟一个"15 分钟"区间
+INTERVAL_S = 60          # 1 分钟一个市场区间(仿真专用压缩尺度)
 log = logging.getLogger("simulate")
 
 

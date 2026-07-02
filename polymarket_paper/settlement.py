@@ -19,8 +19,8 @@ log = logging.getLogger(__name__)
 
 
 def outcome_from_prices(open_price: float, close_price: float,
-                        tie_resolves_down: bool = True) -> int:
-    """1=Up, 0=Down。平盘时按规则判 Down(Up 需严格上涨)。"""
+                        tie_resolves_down: bool = False) -> int:
+    """1=Up, 0=Down。官方规则:结束价 >= 开始价判 Up,平局默认算 Up。"""
     if close_price > open_price:
         return 1
     if close_price < open_price:

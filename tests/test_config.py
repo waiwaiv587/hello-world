@@ -13,6 +13,9 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.bankroll.kelly_multiplier, 0.25)
         self.assertEqual(cfg.bankroll.max_stake_fraction, 0.02)
         self.assertEqual(cfg.strategy.edge_threshold, 0.05)
+        # 实测确认:5 分钟一档,平局算 Up(非最初设想的 15 分钟/判 Down)
+        self.assertEqual(cfg.polymarket.interval_minutes, 5)
+        self.assertFalse(cfg.strategy.tie_resolves_down)
         # 硬性要求:所有密钥留空
         assert_paper_mode(cfg)
 

@@ -1,4 +1,4 @@
-"""主循环:按 15 分钟周期发现市场 → 记录预测快照 → 模拟入场 → 到期结算。
+"""主循环:按 5 分钟周期发现市场 → 记录预测快照 → 模拟入场 → 到期结算。
 
 用法:
     python -m polymarket_paper.main [--config config.toml]
@@ -26,7 +26,7 @@ log = logging.getLogger("polymarket_paper")
 
 async def run_market_cycle(cfg: Config, store: Store, binance: BinanceFeed,
                            client: PolymarketClient, market: MarketInfo) -> None:
-    """跑完一个 15 分钟市场:定期快照 + 至多 N 笔假想单。"""
+    """跑完一个市场区间:定期快照 + 至多 N 笔假想单。"""
     st = cfg.strategy
     fee_bps = market.fee_bps if market.fee_bps >= 0 else cfg.fees.taker_fee_bps
     store.upsert_market(
@@ -111,7 +111,7 @@ async def main_loop(cfg: Config) -> None:
             except Exception as exc:
                 log.warning("市场发现失败: %s", exc)
             if market is None:
-                log.info("暂未发现进行中的 15 分钟 BTC 市场,20s 后重试")
+                log.info("暂未发现进行中的 BTC up/down 市场,20s 后重试")
                 await asyncio.sleep(20)
                 continue
 

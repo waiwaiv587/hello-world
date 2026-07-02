@@ -1,6 +1,7 @@
 # Polymarket 校准交易系统 v0.1(纸面模式)
 
-第一阶段:15 分钟 BTC up/down 纸面交易,跑四周,攒校准样本、验证数据管道。
+第一阶段:5 分钟 BTC up/down 纸面交易(实测确认周期是 5 分钟,不是最初设想的
+15 分钟),跑四周,攒校准样本、验证数据管道。
 **全程无真实下单** —— 代码里不存在下单路径,且启动时强制校验所有密钥为空。
 定位:训练场 + 管道验证,不是提款机;真金白银的目标在第二阶段的事件市场。
 
@@ -25,7 +26,7 @@ python -m polymarket_paper.report     # ② 报表:生成 reports/report.html
 
 ```bash
 python -m unittest discover -s tests    # 75 项单测,秒级
-python scripts/simulate.py              # 本机模拟交易所,把 15 分钟压成 1 分钟,
+python scripts/simulate.py              # 本机模拟交易所,把区间压成 1 分钟,
                                         # 完整跑 发现市场→快照→模拟入场→结算→报表
 ```
 
@@ -54,16 +55,25 @@ polymarket_paper/
 scripts/simulate.py  离线端到端仿真(本机模拟 Polymarket + Binance)
 ```
 
-## 真跑之前的核对清单(本仓库在无外网环境中开发,需对照线上确认)
+## 首跑核对清单(2025-12-19 已对照官方 API 实测确认)
 
-1. **市场发现**:通过 Gamma `/markets` 按标题正则 `Bitcoin Up or Down`
-   + endDate 落在 15 分钟整点边界筛选。若线上命名不同,调整 `config.toml`
-   的 `series_title_regex`,或用 `override_condition_id` 手动钉死先跑通。
+1. **市场发现**:✅ 已确认。Gamma `/markets` 里标题格式为
+   `Bitcoin Up or Down - <月> <日>, <时:分><AM/PM>-<时:分><AM/PM> ET`,
+   `series_title_regex = "Bitcoin Up or Down"` 能正确匹配。**区间实际是
+   5 分钟一档,不是最初设想的 15 分钟**——`config.toml` 的
+   `interval_minutes` 已改为 5,相关参数(波动率窗口、决策间隔等)已按
+   比例缩短。若未来线上命名变化,用 `override_condition_id` 手动钉死
+   先跑通。
 2. **taker 费率**:优先读 CLOB 市场对象的 `taker_base_fee`,读不到用
-   `[fees] taker_fee_bps`(默认 200bps)兜底 —— 对照官网当前费率改。
-3. **结算规则**:默认平盘判 Down(Up 需严格上涨),核对 `tie_resolves_down`。
-   Binance 兜底结算与 Polymarket 官方价格源可能有极小分歧,报表里
-   `resolution_source` 字段可区分。
+   `[fees] taker_fee_bps`(默认 200bps)兜底。**尚未实测确认真实数值**,
+   建议首次运行前手动查一次:
+   `Invoke-RestMethod -Uri "https://clob.polymarket.com/markets/<conditionId>"`。
+3. **结算规则**:✅ 已确认。官方文案原文:"结束价 >= 开始价 判 Up,
+   否则判 Down"——**平局(价格不变)算 Up**,`tie_resolves_down` 已改为
+   `false`。结算依据 Chainlink BTC/USD 数据流,不是 Binance 现货或其他
+   交易所价格,因此 Binance 只作为官方结果未出时的临时近似兜底(两者
+   存在极小概率的边缘分歧),报表里 `resolution_source` 字段可区分每
+   条记录到底用的哪个价格源。
 
 ## 四周后看两个数字
 
