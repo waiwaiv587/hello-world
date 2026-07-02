@@ -14,13 +14,19 @@ WebSocket 行情订阅、图表全部用标准库自实现(`netutil.py` / `miniw
 一个命令行程序,两条命令:
 
 ```bash
-python -m polymarket_paper.main       # ① 采集器:挂机跑,记录预测与假想单
-python -m polymarket_paper.report     # ② 报表:生成 reports/report.html
+python -m polymarket_paper.main         # ① 采集器:挂机跑,记录预测与假想单
+python -m polymarket_paper.dashboard    # ② 实时仪表盘:浏览器打开一直看
+python -m polymarket_paper.report       # ③(可选)导出一次性的 report.html/CSV 快照
 ```
 
-`report.html` 是自包含网页(双击用浏览器打开,自动适配深色模式),
-包含两个关键数字、校准曲线、滚动 Brier、校准明细表;另有 report.md
-文本版和 CSV 原始数据。
+**实时仪表盘**(`dashboard.py`):本地网页,①②两个命令同时开着跑,浏览器打开
+`http://127.0.0.1:8765` 就能看,页面每 8 秒自动刷新一次(数字改用 `--interval`
+调),不用手动重新生成、不用刷新浏览器。只监听 127.0.0.1,不对外网暴露。
+
+`report.py` 生成的是某一时刻的静态快照(`reports/report.html` + report.md +
+CSV),适合导出存档或分享;日常盯盘用仪表盘就够了。两者内容一样:两个关键
+数字、运行状态(虚拟资金/追踪市场数/待结算数)、校准曲线、滚动 Brier、
+校准明细表,自动适配深色模式。
 
 ## 先跑仿真(不联网,验证全流程)
 
@@ -44,7 +50,8 @@ polymarket_paper/
 ├── storage.py       SQLite:markets / records(时间戳、市场ID、own_prob、市场价、
 │                    假想仓位、结算结果)/ state(虚拟资金)
 ├── settlement.py    结算:优先 Polymarket 官方结果,兜底 Binance 15m K 线
-├── report.py        报表:report.html + report.md + CSV
+├── report.py        报表渲染(render_body 供 report.py / dashboard.py 共用)+ 静态导出
+├── dashboard.py     本地实时仪表盘:HTTP 服务,浏览器轮询 /fragment 自动刷新
 ├── main.py          主循环:发现市场 → 快照 → 模拟入场 → 结算
 ├── miniws.py        迷你 WebSocket 客户端/测试服务端(RFC 6455,纯标准库)
 ├── netutil.py       HTTP JSON 工具(urllib 异步包装)

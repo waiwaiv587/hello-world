@@ -58,6 +58,7 @@ class TestReport(unittest.TestCase):
         s = seed_store()
         doc = build_html_report(s, 10_000.0)
         self.assertIn("<!DOCTYPE html>", doc)
+        self.assertIn("运行状态", doc)
         self.assertIn("校准曲线", doc)
         self.assertIn("滚动 Brier", doc)
         self.assertIn("<svg", doc)
@@ -66,7 +67,9 @@ class TestReport(unittest.TestCase):
 
     def test_html_report_empty(self):
         s = Store(":memory:")
-        self.assertIn("尚无已结算样本", build_html_report(s, 10_000.0))
+        doc = build_html_report(s, 10_000.0)
+        self.assertIn("尚无已结算的预测快照", doc)
+        self.assertIn("运行状态", doc)   # 空库也能看到虚拟资金/追踪状态
         s.close()
 
     def test_csv_export(self):

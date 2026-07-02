@@ -178,3 +178,22 @@ class Store:
         return self.conn.execute(
             "SELECT * FROM markets WHERE outcome IS NULL AND interval_end < ?",
             (before_ts,)).fetchall()
+
+    def status_summary(self, initial_bankroll: float) -> dict:
+        """实时仪表盘用的运行状态摘要(与已结算校准数据分开,随时可查)。"""
+        total_markets = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM markets").fetchone()["n"]
+        pending_markets = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM markets WHERE outcome IS NULL"
+        ).fetchone()["n"]
+        total_records = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM records").fetchone()["n"]
+        last_ts = self.conn.execute(
+            "SELECT MAX(ts) AS ts FROM records").fetchone()["ts"]
+        return {
+            "bankroll": self.get_bankroll(initial_bankroll),
+            "total_markets": total_markets,
+            "pending_markets": pending_markets,
+            "total_records": total_records,
+            "last_record_ts": last_ts,
+        }

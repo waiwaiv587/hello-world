@@ -129,6 +129,7 @@ dl.kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1f
 dl.kpi div { border-left: 3px solid var(--grid); padding-left: 12px; }
 dl.kpi dt { color: var(--muted); font-size: 12px; margin-bottom: 2px; }
 dl.kpi dd { margin: 0; font-size: 20px; font-weight: 600; }
+section.status dl.kpi dd { font-size: 16px; font-weight: 500; }
 .good { color: var(--good); } .bad { color: var(--bad); }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th { color: var(--muted); font-weight: 500; text-align: right; padding: 6px 10px;
@@ -140,20 +141,38 @@ p.note { color: var(--muted); font-size: 12px; line-height: 1.6; }
 """
 
 
-def build_html_report(store: Store, initial_bankroll: float,
-                      window: int = 200) -> str:
-    rows = store.settled_records()
-    parts = ["<!DOCTYPE html>", '<html lang="zh"><head><meta charset="utf-8">',
-             '<meta name="viewport" content="width=device-width, initial-scale=1">',
-             "<title>Polymarket 纸面校准报表</title>",
-             f"<style>{_CSS}</style></head><body><main>",
-             "<h1>Polymarket 纸面校准报表</h1>",
-             f'<div class="sub">生成于 {html.escape(time.strftime("%Y-%m-%d %H:%M:%S"))}'
-             f" · 滚动窗口 {window}</div>"]
+def render_status_bar(status: dict) -> str:
+    """运行状态摘要:虚拟资金、追踪市场数、待结算数、最近一条快照时间。
 
+    与"已结算校准数据"分开展示——采集器刚启动、样本还没攒够时,这块也
+    能立刻显示出东西,让人确认程序是不是真的在跑。
+    """
+    last_ts = status["last_record_ts"]
+    last_str = (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_ts))
+                if last_ts else "—")
+    return "\n".join([
+        '<section class="status"><h2>运行状态</h2>',
+        '<dl class="kpi">',
+        f'<div><dt>虚拟资金</dt><dd>{status["bankroll"]:.2f} USDC</dd></div>',
+        f'<div><dt>追踪市场数</dt><dd>{status["total_markets"]}</dd></div>',
+        f'<div><dt>待结算</dt><dd>{status["pending_markets"]}</dd></div>',
+        f'<div><dt>最近一条快照</dt><dd>{html.escape(last_str)}</dd></div>',
+        "</dl></section>",
+    ])
+
+
+def render_body(store: Store, initial_bankroll: float,
+                window: int = 200) -> str:
+    """报表主体(不含 <html>/<head> 外壳)。静态报表与实时仪表盘共用,
+    仪表盘每次请求都重新调用这个函数,直接反映数据库最新状态。
+    """
+    parts = [render_status_bar(store.status_summary(initial_bankroll))]
+    rows = store.settled_records()
     if not rows:
-        parts += ["<section><p>尚无已结算样本。</p></section>",
-                  "</main></body></html>"]
+        parts.append(
+            "<section><p>尚无已结算的预测快照,采集器可能还在热身或刚"
+            "启动。这块会随数据库更新自动出现内容,无需手动操作。</p>"
+            "</section>")
         return "\n".join(parts)
 
     own = [r["own_prob"] for r in rows]
@@ -236,8 +255,25 @@ def build_html_report(store: Store, initial_bankroll: float,
         "(点差成本已含),并扣除 taker 费。市场价基线 = 快照时刻 Up 合约的"
         "买卖中间价。决策口径:|own_prob − 卖一价| 严格大于 5 个百分点才记单,"
         "1/4 Kelly,单笔(本金+费)≤ 虚拟资金 2%。</p></section>",
-        "</main></body></html>"]
+    ]
     return "\n".join(parts)
+
+
+def build_html_report(store: Store, initial_bankroll: float,
+                      window: int = 200) -> str:
+    """静态报表:一次性生成的完整 HTML 文件(report.html)。"""
+    body = render_body(store, initial_bankroll, window)
+    return "\n".join([
+        "<!DOCTYPE html>", '<html lang="zh"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        "<title>Polymarket 纸面校准报表</title>",
+        f"<style>{_CSS}</style></head><body><main>",
+        "<h1>Polymarket 纸面校准报表</h1>",
+        f'<div class="sub">生成于 {html.escape(time.strftime("%Y-%m-%d %H:%M:%S"))}'
+        f" · 滚动窗口 {window}</div>",
+        body,
+        "</main></body></html>",
+    ])
 
 
 def main() -> None:
