@@ -21,46 +21,52 @@ def gamma_market(question: str, end_iso: str, cond: str = "0xabc",
 
 
 class TestDiscovery(unittest.TestCase):
-    # now = 2026-07-01 00:05:00 UTC;当前区间结算于 00:15
-    NOW = datetime(2026, 7, 1, 0, 5, tzinfo=timezone.utc).timestamp()
-    END_ISO = "2026-07-01T00:15:00Z"
+    # 实测样本(2025-12-19 官方 API):5 分钟一档,标题形如
+    # "Bitcoin Up or Down - December 19, 11:35AM-11:40AM ET"
+    # now = 2025-12-19 16:37:00 UTC;当前区间结算于 16:40 UTC
+    NOW = datetime(2025, 12, 19, 16, 37, tzinfo=timezone.utc).timestamp()
+    END_ISO = "2025-12-19T16:40:00Z"
+    INTERVAL_MIN = 5
 
     def test_selects_current_interval_market(self):
         markets = [
-            gamma_market("Ethereum Up or Down", self.END_ISO, cond="0xeth"),
-            gamma_market("Bitcoin Up or Down - Jul 1, 12:15AM ET",
+            gamma_market("Ethereum Up or Down - December 19, 11:35AM-11:40AM ET",
+                         self.END_ISO, cond="0xeth"),
+            gamma_market("Bitcoin Up or Down - December 19, 11:35AM-11:40AM ET",
                          self.END_ISO, cond="0xbtc"),
             # 下一个区间的市场,不应选中
-            gamma_market("Bitcoin Up or Down - later",
-                         "2026-07-01T00:30:00Z", cond="0xnext"),
+            gamma_market("Bitcoin Up or Down - December 19, 11:40AM-11:45AM ET",
+                         "2025-12-19T16:45:00Z", cond="0xnext"),
             # 已过期
-            gamma_market("Bitcoin Up or Down - old",
-                         "2026-07-01T00:00:00Z", cond="0xold"),
+            gamma_market("Bitcoin Up or Down - December 19, 11:30AM-11:35AM ET",
+                         "2025-12-19T16:35:00Z", cond="0xold"),
         ]
-        info = select_current_market(markets, self.NOW, "Bitcoin Up or Down", 15)
+        info = select_current_market(
+            markets, self.NOW, "Bitcoin Up or Down", self.INTERVAL_MIN)
         self.assertIsNotNone(info)
         self.assertEqual(info.condition_id, "0xbtc")
         self.assertEqual(info.token_id_up, "111")
         self.assertEqual(info.token_id_down, "222")
-        self.assertEqual(info.interval_end - info.interval_start, 900)
-        self.assertEqual(info.interval_end % 900, 0)
+        self.assertEqual(info.interval_end - info.interval_start, 300)
+        self.assertEqual(info.interval_end % 300, 0)
 
     def test_outcome_order_respected(self):
         # outcomes 顺序为 Down/Up 时 token 映射必须跟着换
         m = gamma_market("Bitcoin Up or Down", self.END_ISO,
                          outcomes=("Down", "Up"), tokens=("111", "222"))
-        info = select_current_market([m], self.NOW, "Bitcoin Up or Down", 15)
+        info = select_current_market(
+            [m], self.NOW, "Bitcoin Up or Down", self.INTERVAL_MIN)
         self.assertEqual(info.token_id_up, "222")
         self.assertEqual(info.token_id_down, "111")
 
     def test_non_boundary_end_rejected(self):
-        m = gamma_market("Bitcoin Up or Down", "2026-07-01T00:07:00Z")
-        self.assertIsNone(
-            select_current_market([m], self.NOW, "Bitcoin Up or Down", 15))
+        m = gamma_market("Bitcoin Up or Down", "2025-12-19T16:38:00Z")
+        self.assertIsNone(select_current_market(
+            [m], self.NOW, "Bitcoin Up or Down", self.INTERVAL_MIN))
 
     def test_no_match_returns_none(self):
-        self.assertIsNone(
-            select_current_market([], self.NOW, "Bitcoin Up or Down", 15))
+        self.assertIsNone(select_current_market(
+            [], self.NOW, "Bitcoin Up or Down", self.INTERVAL_MIN))
 
 
 class TestBookState(unittest.TestCase):
@@ -98,9 +104,10 @@ class TestSettlementParsing(unittest.TestCase):
     def test_outcome_from_prices(self):
         self.assertEqual(outcome_from_prices(100.0, 100.01), 1)
         self.assertEqual(outcome_from_prices(100.0, 99.99), 0)
-        self.assertEqual(outcome_from_prices(100.0, 100.0), 0)   # 平盘判 Down
+        # 官方规则:结束价 >= 开始价判 Up,平局默认算 Up
+        self.assertEqual(outcome_from_prices(100.0, 100.0), 1)
         self.assertEqual(
-            outcome_from_prices(100.0, 100.0, tie_resolves_down=False), 1)
+            outcome_from_prices(100.0, 100.0, tie_resolves_down=True), 0)
 
     def test_outcome_from_gamma(self):
         m = {"closed": True, "outcomes": '["Up", "Down"]',

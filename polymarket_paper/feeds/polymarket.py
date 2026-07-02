@@ -42,11 +42,13 @@ def select_current_market(
     title_regex: str,
     interval_minutes: int = 15,
 ) -> MarketInfo | None:
-    """从 Gamma /markets 返回里挑出"当前 15 分钟区间"的 BTC up/down 市场。
+    """从 Gamma /markets 返回里挑出"当前区间"的 BTC up/down 市场。
 
-    判定:标题匹配正则,且 endDate 落在 15 分钟整点边界、距 now 不超过
-    一个区间长度。interval_start = endDate − 区间长度(不依赖 Gamma 的
-    startDate 字段语义)。outcomes 里 Up/Down 的顺序决定 token 映射。
+    判定:标题匹配正则,且 endDate 落在 interval_minutes 整点边界、距 now
+    不超过一个区间长度。interval_start = endDate − 区间长度(不依赖 Gamma
+    的 startDate 字段语义)。outcomes 里 Up/Down 的顺序决定 token 映射。
+    Polymarket 的 BTC up/down 系列实际是 5 分钟一档(非 15 分钟),
+    interval_minutes 默认值见 PolymarketCfg。
     """
     pattern = re.compile(title_regex, re.IGNORECASE)
     interval_s = interval_minutes * 60
@@ -104,7 +106,7 @@ class PolymarketClient:
         return await netutil.get_json(url, params=params)
 
     async def discover_current_market(self) -> MarketInfo | None:
-        """自动发现当前 15 分钟 BTC up/down 市场;支持配置手动钉死。"""
+        """自动发现当前区间的 BTC up/down 市场;支持配置手动钉死。"""
         cfg = self.cfg
         if cfg.override_condition_id:
             now = time.time()
