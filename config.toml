@@ -1,0 +1,55 @@
+# Polymarket 校准交易系统 v0.1 —— 纸面模式配置
+# 硬性要求:全程无真实下单;所有密钥必须留空,任何密钥非空则程序拒绝启动。
+
+[mode]
+paper = true                     # v0.1 不存在真实下单代码路径,此项必须为 true
+
+[keys]                           # 纸面模式:全部留空
+polymarket_private_key = ""
+polymarket_api_key = ""
+polymarket_api_secret = ""
+polymarket_api_passphrase = ""
+
+[bankroll]
+initial_usdc = 10000.0           # 虚拟资金
+kelly_multiplier = 0.25          # 1/4 Kelly
+max_stake_fraction = 0.02        # 单笔(本金+费)≤ 虚拟资金 2%,即单笔 CVaR ≤ 2%
+
+[strategy]
+edge_threshold = 0.05            # |own_prob − 市场卖一价| > 5 个百分点才记假想单
+decision_interval_s = 30         # 预测快照间隔(秒)
+warmup_s = 30                    # 区间开始后的热身期,不记快照不开仓
+cutoff_s = 20                    # 区间结束前 N 秒停止开新仓
+max_trades_per_market = 1        # 每个 15 分钟市场最多一笔假想单
+min_stake_usdc = 1.0             # 低于该本金不记单
+tie_resolves_down = true         # 收盘价 == 开盘价时判 Down(Up 需严格上涨)
+
+[signal]
+vol_halflife_s = 300.0           # EWMA 已实现波动率半衰期(秒)
+min_sigma = 1e-6
+prob_clamp = 0.005               # own_prob 裁剪到 [0.005, 0.995]
+
+[fees]
+# 兜底 taker 费率(基点);实际优先读取 CLOB 市场对象的 taker_base_fee 字段。
+# 费用公式: fee = bps/10000 × min(p, 1−p) × shares。首跑前对照官网核对。
+taker_fee_bps = 200
+
+[data]
+db_path = "data/paper.db"
+
+[binance]
+ws_url = "wss://stream.binance.com:9443/ws/btcusdt@trade"
+rest_url = "https://api.binance.com"
+symbol = "BTCUSDT"
+
+[polymarket]
+gamma_url = "https://gamma-api.polymarket.com"
+clob_rest_url = "https://clob.polymarket.com"
+clob_ws_url = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+series_title_regex = "Bitcoin Up or Down"   # Gamma 自动发现 15 分钟市场用
+interval_minutes = 15
+book_poll_fallback_s = 5
+# 自动发现失败时手动钉死当前市场(逃生口),留空则自动发现
+override_condition_id = ""
+override_token_id_up = ""
+override_token_id_down = ""
